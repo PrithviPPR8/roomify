@@ -1,23 +1,98 @@
 import { CheckCircle2, ImageIcon, UploadIcon } from 'lucide-react';
 import React, { useState } from 'react'
 import { useOutletContext } from 'react-router';
+import { REDIRECT_DELAY_MS, PROGRESS_INTERVAL_MS, PROGRESS_STEP } from '../lib/constants';
 
-const Upload = () => {
+interface UploadProps {
+  onComplete?: (base64Data: string) => void;
+}
+
+const Upload: React.FC<UploadProps> = ({ onComplete }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const {isSignedIn} = useOutletContext<AuthContext>();
+  const { isSignedIn } = useOutletContext<AuthContext>();
+
+  const processFile = (fileToProcess: File) => {
+    if (!isSignedIn) return;
+
+    setFile(fileToProcess);
+    setProgress(0);
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const base64String = reader.result as string;
+      let currentProgress = 0;
+
+      const intervalId = setInterval(() => {
+        currentProgress += PROGRESS_STEP;
+        setProgress(Math.min(currentProgress, 99));
+
+        if (currentProgress >= 100) {
+          clearInterval(intervalId);
+          setProgress(100);
+
+          setTimeout(() => {
+            onComplete?.(base64String);
+          }, REDIRECT_DELAY_MS);
+        }
+      }, PROGRESS_INTERVAL_MS);
+    };
+
+    reader.readAsDataURL(fileToProcess);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.currentTarget.files;
+    if (files && files.length > 0) {
+      processFile(files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isSignedIn) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (!isSignedIn) return;
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processFile(files[0]);
+    }
+  };
 
   return (
     <div className='upload'>
         {!file ? (
-            <div className={`dropzone ${isDragging ? 'is-dragging' : ''}`}>
+            <div 
+              className={`dropzone ${isDragging ? 'is-dragging' : ''}`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
                 <input 
                     type='file'
                     className='drop-input'
                     accept='.jpg,.jpeg,.png'
                     disabled={!isSignedIn}
+                    onChange={handleChange}
                 />
 
                 <div className='drop-content'>
