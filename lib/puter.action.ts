@@ -55,7 +55,7 @@ export const createProject = async ({ item }: CreateProjectParams):
     const payload = {
         ... rest,
         sourceImage: resolvedSource,
-        resolvedImage: resolvedRender
+        renderedImage: resolvedRender
     }
 
     try {
