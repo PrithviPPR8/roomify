@@ -18,6 +18,8 @@ const Upload: React.FC<UploadProps> = ({ onComplete }) => {
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
 
+  const readerRef = useRef<FileReader | null>(null);
+
   // Cleanup function to clear any active timers
   const clearTimers = () => {
     if (intervalIdRef.current !== null) {
@@ -30,10 +32,18 @@ const Upload: React.FC<UploadProps> = ({ onComplete }) => {
     }
   };
 
+  const clearPendingWork = () => {
+    clearTimers();
+    if (readerRef.current?.readyState === FileReader.LOADING) {
+      readerRef.current.abort();
+    }
+    readerRef.current = null;
+  };
+
   // Cleanup on component unmount
   useEffect(() => {
     return () => {
-      clearTimers();
+      clearPendingWork();
     };
   }, []);
 
@@ -48,14 +58,24 @@ const Upload: React.FC<UploadProps> = ({ onComplete }) => {
     }
 
     // Clear any existing timers before starting a new upload
-    clearTimers();
+    clearPendingWork();
 
     setFile(fileToProcess);
     setProgress(0);
 
     const reader = new FileReader();
+    readerRef.current = reader;
+
+    reader.onerror = reader.onabort = () => {
+      if (readerRef.current === reader) {
+        readerRef.current = null;
+      }
+      setFile(null);
+      setProgress(0);
+    };
 
     reader.onload = () => {
+      if (readerRef.current !== reader) return;
       const base64String = reader.result as string;
       let currentProgress = 0;
 
@@ -70,6 +90,9 @@ const Upload: React.FC<UploadProps> = ({ onComplete }) => {
 
           timeoutIdRef.current = setTimeout(() => {
             timeoutIdRef.current = null;
+            if (readerRef.current === reader) {
+              readerRef.current = null;
+            }
             onComplete?.(base64String);
           }, REDIRECT_DELAY_MS);
         }
