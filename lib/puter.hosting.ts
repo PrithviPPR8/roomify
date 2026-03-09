@@ -13,10 +13,14 @@ export const getOrCreateHostingConfig = async (): Promise<HostingConfig | null> 
 
         const record = { subdomain: created.subdomain };
 
-        await puter.kv.set(HOSTING_CONFIG_KEY, record);
+        try {
+            await puter.kv.set(HOSTING_CONFIG_KEY, record);
+        } catch (e) {
+            console.warn(`Failed to persist hosting config: ${e}`);
+        }
         return record;
     } catch (e) {
-        console.warn(`Could not find subdomain:${e}`);
+        console.warn(`Could not create hosting config: ${e}`);
         return null;
     }
 } 
@@ -33,7 +37,7 @@ export const uploadImageToHosting = async ({ hosting, url, projectId, label }:
                 .then((blob) => blob ? { blob, contentType: 'image/png' } : null)
             : await fetchBlobFromUrl(url);
 
-        if(!resolved) return null;
+        if(!resolved || resolved.blob.size === 0) return null;
 
         const contentType = resolved.contentType || resolved.blob.type || '';
         const ext = getImageExtension(contentType, url);
