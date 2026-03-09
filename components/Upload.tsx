@@ -1,5 +1,5 @@
 import { CheckCircle2, ImageIcon, UploadIcon } from 'lucide-react';
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useOutletContext } from 'react-router';
 import { REDIRECT_DELAY_MS, PROGRESS_INTERVAL_MS, PROGRESS_STEP } from '../lib/constants';
 
@@ -14,8 +14,41 @@ const Upload: React.FC<UploadProps> = ({ onComplete }) => {
 
   const { isSignedIn } = useOutletContext<AuthContext>();
 
+  // Store timer IDs in refs to persist across renders and cleanup
+  const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup function to clear any active timers
+  const clearTimers = () => {
+    if (intervalIdRef.current !== null) {
+      clearInterval(intervalIdRef.current);
+      intervalIdRef.current = null;
+    }
+    if (timeoutIdRef.current !== null) {
+      clearTimeout(timeoutIdRef.current);
+      timeoutIdRef.current = null;
+    }
+  };
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      clearTimers();
+    };
+  }, []);
+
   const processFile = (fileToProcess: File) => {
     if (!isSignedIn) return;
+
+    const allowedTypes = new Set(["image/jpeg", "image/jpg", "image/png"]);
+    const maxSizeBytes = 10 * 1024 * 1024;
+
+    if (!allowedTypes.has(fileToProcess.type) || fileToProcess.size > maxSizeBytes) {
+      return;
+    }
+
+    // Clear any existing timers before starting a new upload
+    clearTimers();
 
     setFile(fileToProcess);
     setProgress(0);
@@ -26,15 +59,17 @@ const Upload: React.FC<UploadProps> = ({ onComplete }) => {
       const base64String = reader.result as string;
       let currentProgress = 0;
 
-      const intervalId = setInterval(() => {
+      intervalIdRef.current = setInterval(() => {
         currentProgress += PROGRESS_STEP;
         setProgress(Math.min(currentProgress, 99));
 
         if (currentProgress >= 100) {
-          clearInterval(intervalId);
+          clearInterval(intervalIdRef.current!);
+          intervalIdRef.current = null;
           setProgress(100);
 
-          setTimeout(() => {
+          timeoutIdRef.current = setTimeout(() => {
+            timeoutIdRef.current = null;
             onComplete?.(base64String);
           }, REDIRECT_DELAY_MS);
         }
