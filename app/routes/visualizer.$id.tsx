@@ -13,6 +13,7 @@ const VisualizerId = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(initialRender || null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleBack = () => navigate("/");
 
@@ -30,6 +31,7 @@ const VisualizerId = () => {
       }
     } catch (error) {
       console.error('Generation failed: ', error);
+      setError('Failed to generate 3D view. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -89,6 +91,10 @@ const VisualizerId = () => {
               </Button>
             </div>
           </div>
+
+          {error && !isProcessing && (
+            <div className='error-message'>{error}</div>
+          )}
 
           <div className={`render-area ${isProcessing ? 'is-processing' : ''}`}>
             {currentImage ? (

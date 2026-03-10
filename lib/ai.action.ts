@@ -26,7 +26,6 @@ export async function fetchAsDataUrl(url: string): Promise<string> {
   }
 }
 
-
 export const generate3DView = async ({ sourceImage }: Generate3DViewParams) => {
     const dataUrl = sourceImage.startsWith('data:')
         ? sourceImage
@@ -35,7 +34,9 @@ export const generate3DView = async ({ sourceImage }: Generate3DViewParams) => {
     const base64Data = dataUrl.split(',')[1];  //we only take the 2nd part of it. Example - data:image/png;base64,iVBORw0KGgoAAA...  It takes the part after comma - ivBORw0KGgoAAA
     const mimeType = dataUrl.split(';')[0].split(':')[1];   //first it takes - data:image/png, then it takes imgage/png
 
-    if(!mimeType || !base64Data) throw new Error('Invalid source image payload');
+    if(!mimeType || mimeType.trim() === '' || !base64Data || base64Data.trim() === '') {
+      throw new Error('Invalid source image payload');
+    }
 
     const response = await puter.ai.txt2img(ROOMIFY_RENDER_PROMPT, {
         provider: 'gemini',
